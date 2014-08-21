@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html class="">
+    <head>
+        <meta name="viewport" content="initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
+    </head>
+    <body>
+        <h1>Subscription Hub Demo</h1>
+
+        <h2>Auth</h2>
+        <div id="auth-button"></div>
+
+        <h2>Subscribe</h2>
+        <form id="subscription-form">
+            <label>subscribe to</label><input name="topic" type="text" />
+            <input type="submit" />
+        </form>
+
+        <script src="../../lib/cajon/cajon.js" type="text/javascript"></script>
+        <script src="../../requirejs.conf.js" type="text/javascript"></script>
+        <script>
+            requirejs({
+                baseUrl: "../"
+            });
+        </script>
+        <script>
+        // auth
+        require([
+            'livefyre-auth',
+            'auth/contrib/auth-button',
+        ],function (auth, createAuthButton) {
+            var authButton = createAuthButton(auth, document.getElementById('auth-button'));
+            auth.delegate(auth.createDelegate('http://admin.livefyre.com'));
+        });
+        // init subscription service
+        require([
+            'subscription-hub',
+        ],function (subhub) {
+            var subService = new subhub.SubscriptionService();
+            console.log('created subhub subService', subService);
+        });
+
+        // subscription form
+        // used to input subscription requests
+        SubscriptionForm(window.form = document.getElementById('subscription-form'));
+        function SubscriptionForm(form) {
+            form.addEventListener('submit', onFormSubmit);
+            function onFormSubmit(e) {
+                e.preventDefault();
+                var topic = form['topic'].value;
+                console.log('SubscriptionForm: subscribe to ', topic);
+                // send subscribe request
+                var req = createSubscriptionRequest(topic);
+                window.postMessage(req, '*');
+                form.reset();
+            }
+        };
+
+        function createSubscriptionRequest(topic) {
+            var req = {
+                id: guid(),
+                jsonrpc: '2.0',
+                method: 'subscription-hub/subscribe',
+                params: {
+                    topic: topic
+                }
+            }
+            return req;
+        }
+
+        var guid = (function() {
+          function s4() {
+            return Math.floor((1 + Math.random()) * 0x10000)
+                       .toString(16)
+                       .substring(1);
+          }
+          return function() {
+            return s4() + s4() + '-' + s4() + '-' + s4() + '-' +
+                   s4() + '-' + s4() + s4() + s4();
+          };
+        })();
+        </script>
+    </body>
+</html>
