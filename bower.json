@@ -1,5 +1,5 @@
 {
-  "name": "subscription-hub",
+  "name": "livefyre-subscription-hub",
   "version": "0.0.0",
   "main": [
     "./src/main.js"

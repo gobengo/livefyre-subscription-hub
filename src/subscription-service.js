@@ -1,5 +1,6 @@
 var StreamClient = require('stream-client');
 var Readable = require('stream/readable');
+var guid = require('./guid');
 
 /**
  * SubscriptionService centralizes the responsibility of data access
@@ -23,7 +24,11 @@ var Readable = require('stream/readable');
  * }
  * 
  * Response indicates that the subscription was successful.
- * @todo
+ * {
+ *   id: 'requestId',
+ *   jsonrpc: '2.0',
+ *   result: 200
+ * }
  */
 module.exports = SubscriptionService;
 
@@ -35,7 +40,9 @@ function SubscriptionService(opts) {
     var eventTarget = opts.eventTarget || window;
     var messageSubscription = onMessage(eventTarget, createMessageHandler(this));
     log('listening for messages')
-    this.streamClients = [];
+    // Have 0 or 1 streamClients per Livefyre environment.
+    // This hub can subscribe to all the things.
+    this._streamClientsByEnvironment = {};
 }
 
 /**
@@ -43,13 +50,49 @@ function SubscriptionService(opts) {
  * @todo - Use stream-client to build these streams
  */
 SubscriptionService.prototype.createSubscription = function (opts) {
-    log('creating subscription for: '+opts.topic);
-    var subscription = new Readable();
-    subscription._read = function () {
-        // end immediately. No messages for now.
-        this.push(null);
+    var opts = Object.create(opts || {});
+    var streamClient = this._getOrCreateStreamClient(opts.environment);
+    log('creating subscription',opts);
+    var subscriptionStream = streamClient.subscribe(opts.topic);
+    return subscriptionStream;
+};
+
+/**
+ * Get an appropriate stream-client for an environment, or create
+ * one if needed
+ */
+SubscriptionService.prototype._getOrCreateStreamClient = function (environment) {
+    var environment = environment || 'qa';
+    var streamClient = this._streamClientsByEnvironment[environment];
+    if ( ! streamClient) {
+        // First time this env has been subscribed to. Better create.
+        this._streamClientsByEnvironment[environment] = streamClient = this._createStreamClient({
+            environment: environment
+        });
     }
-}
+    return streamClient;
+};
+
+/**
+ * Create a stream client
+ */
+SubscriptionService.prototype._createStreamClient = function (opts) {
+    opts = Object.create(opts || {});
+    opts.debug = true;
+    opts.hostname = 'stream4.qa.livefyre.com';
+    var streamClient = new StreamClient(opts);
+    streamClient
+        .on('start', function () {
+            log('streamClient start', this);
+        })
+        .on('end', function () {
+            log('streamClient end', this);
+        })
+        .on('error', function (e) {
+            log('streamClient error', e, this);
+        })
+    return streamClient;
+};
 
 /**
  * Given a service, return a function that can be invoked with any message,
@@ -66,14 +109,29 @@ function createMessageHandler(service) {
         }
         log('got subscribe request', message);
         var topic = message.params.topic;
-        var topicSubscription = service.createSubscription(message.params)
+        var topicSubscription = service.createSubscription(message.params);
+        var subscriptionId = guid();
+        window.postMessage({
+            id: message.id,
+            jsonrpc: '2.0',
+            result: {
+                code: 200,
+                subscription: subscriptionId
+            }
+        }, '*');
+        topicSubscription.on('data', function (message) {
+            window.postMessage({
+                method: subscriptionId,
+                params: message
+            }, '*');
+        });
     }
 }
 
 // Return whether a given message object is meant to be a
 // subscription request
 function isSubscribeRequest(message) {
-    return message && message.method && message.method.indexOf('subscribe');
+    return message && message.method && message.method.indexOf('subscribe') !== -1;
 }
 
 /**

@@ -12,7 +12,9 @@ require.config({
     debug: 'lib/debug/debug',
     ajax: 'lib/reqwest/reqwest.min',
     'event-emitter': 'lib/event-emitter/src/event-emitter',
-    'events-event-emitter': 'lib/events-event-emitter/src/event-emitter'
+    'events-event-emitter': 'lib/events-event-emitter/src/event-emitter',
+    'sockjs-client': 'lib/stream-client/node_modules/sockjs-client/sockjs',
+    promise: 'lib/promise'
   },
   packages: [{
     name: "subscription-hub",
@@ -47,10 +49,6 @@ require.config({
     name: "stream-client",
     location:"lib/stream-client/src",
     main: "StreamClient"
-  },{
-    name: "sockjs-client",
-    location:"lib/stream-client/node_modules/sockjs-client",
-    main: "sockjs"
   },{
     name: "util-extend",
     location: "node_modules/util-extend",

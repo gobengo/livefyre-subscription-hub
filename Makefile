@@ -8,6 +8,9 @@ dist: build src requirejs.conf.js tools
 	mkdir -p dist
 	./node_modules/requirejs/bin/r.js -o ./tools/build.conf.js	
 
+lib/promise.js: node_modules
+	browserify node_modules/promise/index.js -o lib/promise.js -s promise
+
 # if package.json changes, install
 node_modules: package.json
 	npm install

@@ -39,21 +39,58 @@
             console.log('created subhub subService', subService);
         });
 
-        // subscription form
-        // used to input subscription requests
-        SubscriptionForm(window.form = document.getElementById('subscription-form'));
-        function SubscriptionForm(form) {
-            form.addEventListener('submit', onFormSubmit);
-            function onFormSubmit(e) {
-                e.preventDefault();
-                var topic = form['topic'].value;
-                console.log('SubscriptionForm: subscribe to ', topic);
-                // send subscribe request
-                var req = createSubscriptionRequest(topic);
-                window.postMessage(req, '*');
-                form.reset();
+        require([
+            'subscription-hub/rpc-request',
+            'subscription-hub/message-stream'
+        ], function (rpc, MessageStream) {
+            // subscription form
+            // used to input subscription requests
+            var subForm = SubscriptionForm(window.form = document.getElementById('subscription-form'));
+            function SubscriptionForm(form) {
+                form.addEventListener('submit', onFormSubmit);
+                function onFormSubmit(e) {
+                    e.preventDefault();
+                    var topic = form['topic'].value;
+                    console.log('SubscriptionForm: subscribe to ', topic);
+                    // send subscribe request
+                    var req = createSubscriptionRequest(topic);
+                    rpc.requestOverWindow(window, req).then(function (res) {
+                        debugger;
+                        if ( ! res.subscription) {
+                            throw new Error("No subscription!")
+                        }
+                        new MessageStream().on('data', function (message) {
+                            if ( ! isMethodNotification(res.subscription, message)) {
+                                return;
+                            }
+                            console.log('messageStream', message);
+                        });
+                        form.reset();
+                    }).done()
+                }
+            };
+        });
+
+        function isMethodNotification(method, message) {
+            if (typeof message !== 'object') {
+                return;
             }
-        };
+            if (message.method !== method) {
+                return;
+            }
+            return true;
+        }
+
+        var subLog = new SubscriptionLog();
+        function SubscriptionLog() {
+            var el = document.createElement('ul');
+
+            function renderLogItem(item) {
+                var el = document.createElement('li');
+                el.innerHTML = item;
+                return el;
+            }
+        }
 
         function createSubscriptionRequest(topic) {
             var req = {
